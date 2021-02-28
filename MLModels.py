@@ -333,3 +333,49 @@ class LDA():
         plt.ylabel('LD2')
         plt.scatter(lda[:,0],lda[:,1],c=self.df[self.class_name],
                     cmap='rainbow',alpha=0.7,edgecolors='b')
+
+
+class PCA():
+    '''
+    Apply PCA or Principal Component Analysis for unsupervised dimensionality reduction. Uses Eign values, vectors to find the directions which
+    preserves the maximum variance in the data.
+    Provide the Scaled Data to PCA to get the most out of it. USe StandardScaler() class from sklearn.preproccessing.
+    '''
+    def __init__(self,n_components:int):
+        '''
+        n_components: Number of components to find. 0 < n_components <= no of features
+        '''
+        self.n_components = n_components
+
+
+    def fit(self,X:np.ndarray,transform:bool=True):
+        '''
+        Find the Covariance Matrix -> Find Eign vectors and Values -> 
+        args:
+            X: Numpy array of features to be fitted on the data
+            transform: Whether to fit only ot transform too
+        '''
+        assert 0 < self.n_components <= X.shape[1], "Provide a value such that 0 < n_components <= X.shape[1]"
+        cov_matrix = np.cov(X.T) # Transpose the features matrix for finding the 
+        self.values, self.vectors = np.linalg.eig(cov_matrix) # Eigen Values and vectors
+
+        self.explained_variances = [] # Explained Variance
+        for i in range(len(self.values)):
+            self.explained_variances.append(self.values[i] / np.sum(self.values))
+        
+        if transform:
+            return self.transform(X)
+
+
+    def transform(self, X:np.ndarray)->np.ndarray:
+        '''
+        Transform the Data based on the values provided
+        args:
+            X: Transform the X features based on the found Eign Values and vectors
+        '''
+        projected_components = []
+        for i in range(self.n_components):
+            projected_components.append(X.dot(self.vectors.T[i]))
+
+        return np.array(projected_components).T
+
