@@ -3,6 +3,7 @@ from math import log
 import pandas as pd
 import matplotlib.pyplot as plt
 import random
+from collections import Counter
 
 SEED = 13
 np.random.seed(SEED)
@@ -418,8 +419,7 @@ class KNN:
         distances = [self.minkowski_distance(x_test,x_each) for x_each in self.X_train] # Get distances for each point in train data
         top_k_indices = np.argsort(distances[:self.k]) # Get indices of top K data points which are the closest
         top_k_labels = [self.y_train[i] for i in top_k_indices] # Get the Y labels of each TOP-K point who are the closest
-        labels, counts = np.unique(top_k_labels, return_counts=True) # Get which Y label/class is dominant https://stackoverflow.com/questions/10741346/numpy-most-efficient-frequency-counts-for-unique-values-in-an-array
-        return labels[0] # First element in labels is the most frequently occured element
+        return Counter(top_k_labels).most_common(1)[0][0] # First element in labels is the most frequently occured element
 
 
     def predict(self,X_test:np.ndarray)->np.ndarray:
