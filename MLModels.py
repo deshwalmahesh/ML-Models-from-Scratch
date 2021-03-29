@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import random
 
 SEED = 13
-
 np.random.seed(SEED)
 
 
@@ -291,7 +290,7 @@ class LDA():
         return (eign_values,eign_vectors)
     
     
-    def explained_var(self,display_only:bool=False):
+    def find_eign(self,display_only:bool=False):
         '''
         Get the explained Variance described by the Eign Vectors and Values
         args:
@@ -317,9 +316,9 @@ class LDA():
         Fit the Data and return the LDA values
         '''
         X = self.df.drop(self.class_name,axis=1).values
-        eign_value_vector_pair = self.explained_var()
+        eign_value_vector_pair = self.find_eign()
         W_matrix = np.hstack((eign_value_vector_pair[0][1].reshape(self.n,1), 
-                      eign_value_vector_pair[1][1].reshape(self.n,1))).real
+                      eign_value_vector_pair[1][1].reshape(self.n,1))).real # run this in a loop for n_components
         lda = np.array(X.dot(W_matrix))
         return lda
     
@@ -353,11 +352,11 @@ class PCA():
         Find the Covariance Matrix -> Find Eign vectors and Values -> 
         args:
             X: Numpy array of features to be fitted on the data
-            transform: Whether to fit only ot transform too
+            transform: Whether to fit only or transform too
         '''
         assert 0 < self.n_components <= X.shape[1], "Provide a value such that 0 < n_components <= X.shape[1]"
         cov_matrix = np.cov(X.T) # Transpose the features matrix for finding the 
-        self.values, self.vectors = np.linalg.eig(cov_matrix) # Eigen Values and vectors
+        self.values, self.vectors = np.linalg.eig(cov_matrix)  # np.linalg.eigh (see 'h' in end) would give different eign values and vectors
 
         self.explained_variances = [] # Explained Variance
         for i in range(len(self.values)):
@@ -376,6 +375,57 @@ class PCA():
         projected_components = []
         for i in range(self.n_components):
             projected_components.append(X.dot(self.vectors.T[i]))
-
         return np.array(projected_components).T
+
+
+class KNN:
+    def __init__(self,k:int=5):
+        '''
+        args:
+            k: No of data points to consider as neighbours
+        '''
+        self.k = k
+
+
+    def minkowski_distance(self,a:np.ndarray,b:np.ndarray,p:int=2)->float:
+        '''
+        Get the distance between two points based on Minkowski distance. It is just a generalised form of many distance given value of 'p'.
+        For p = 2, it'll give Euclidean distance and for p = 1, it'll give Manhattan distance.
+
+        args:
+            a: array of features
+            b: array of features
+            p: distance specifier
+        '''
+        return np.power(np.sum(np.power(np.abs(a-b),p)),1/p)
+    
+
+    def fit(self,X_train:np.ndarray,y_train:np.ndarray):
+        '''
+        Fit the Given data to the model
+        X_train: X features
+        y_train: Corresponding Y labels
+        '''
+        self.X_train = X_train
+        self.y_train = y_train
+    
+
+    def classify(self,x_test:np.ndarray)->int:
+        '''
+        Return the distance of a SINGLE data point to whole of the training data and produce Y label
+        x_test: 1-D Numpy array of Single data point at a time
+        '''
+        distances = [self.minkowski_distance(x_test,x_each) for x_each in self.X_train] # Get distances for each point in train data
+        top_k_indices = np.argsort(distances[:self.k]) # Get indices of top K data points which are the closest
+        top_k_labels = [self.y_train[i] for i in top_k_indices] # Get the Y labels of each TOP-K point who are the closest
+        labels, counts = np.unique(top_k_labels, return_counts=True) # Get which Y label/class is dominant https://stackoverflow.com/questions/10741346/numpy-most-efficient-frequency-counts-for-unique-values-in-an-array
+        return labels[0] # First element in labels is the most frequently occured element
+
+
+    def predict(self,X_test:np.ndarray)->np.ndarray:
+        '''
+        Predict on an incoming dataset
+        X_test: Test Data freatures
+        '''
+        return np.array([self.classify(x) for x in X_test])
 
