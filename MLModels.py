@@ -429,3 +429,73 @@ class KNN:
         '''
         return np.array([self.classify(x) for x in X_test])
 
+
+class BayesClassifier:
+    '''
+    Class to perform Naive Bayes Classification (Gaussian on Normally distributed continuous values)
+    https://www.youtube.com/watch?v=O2L2Uv9pdDA
+    https://www.youtube.com/watch?v=H3EjCKtlVog
+    https://www.quora.com/What-is-the-difference-between-the-the-Gaussian-Bernoulli-Multinomial-and-the-regular-Naive-Bayes-algorithms
+    '''
+    
+    def fit(self,X_train:np.ndarray,y_train:np.ndarray):
+        '''
+        Get the priors of the distributions. Per class Mean, Var, STD and probability
+        args:
+            X_train: Training features
+            y_train: Corresponding True Labels 
+        '''
+        n, feats = X_train.shape
+        self.uniq_labels = np.unique(y_train) # Total unique classes present in the data
+        self.n_labels = len(self.uniq_labels) # Total classes
+        self.per_class_mean = np.zeros((self.n_labels, feats)) # Shape as number of classes and total number of features. Gives us Mean of Distribution of Features in that specific class
+        self.per_class_var = np.zeros((self.n_labels, feats)) # Per Class Var based on the features. Like the different Bell Curves defined (Check Video given in docstring)
+        self.class_prior_prob = np.zeros(self.n_labels) # probability choosing the class. Prior
+
+        # Insert Per class Mean, Var and Priors
+        for label in self.uniq_labels:
+            X_specific_class_only = X_train[y_train == label] # Filtering rows by class label. Shape will be (some_rows, feats)
+            self.per_class_mean[label, :] = X_specific_class_only.mean(axis=0) # Return Per Feature Mean
+            self.per_class_var[label, :] = X_specific_class_only.mean(axis=0) # Same as Above. Distribution of Features in that specific class
+            self.class_prior_prob[label] = X_specific_class_only.shape[0]/n # How many examples of that class are there in the whole data
+
+
+    def get_likelihood(self,class_index:int,x:np.ndarray):
+        '''
+        Get the Likelihood of a data point given its distribution as Mean, Var. Follows the Gaussian PDF equation
+        It'll give the probability of x_i given the  specific Class. For example Probability of a person being AI lover given the person is Python Lover
+        https://iq.opengenus.org/content/images/2020/02/Screenshot_6.jpg
+        https://www.kdnuggets.com/wp-content/uploads/bayes-nagesh-20.png
+
+        args:
+            class_index: Id of the features to which the data point belongs to
+            x: 1-D array of data point
+        '''
+        mean = self.per_class_mean[class_index]
+        var = self.per_class_var[class_index]
+        return (np.exp(- (x-mean)**2 / (2 * var))) / ((2 * np.pi * var)**0.5)# Gaussian PDF equation. Sigma = STD = Variance_squared
+
+
+    def get_label(self,x:np.ndarray):
+        '''
+        Predict label of a Given Single Data Point. It uses the  log (class_prior_probability * LogLikelihood of each feature)
+        args:
+            x: 1-D array of Data points 
+        '''
+        posteriors = [] # P(X | y_i) : All the probabilities for each class given data point
+        for index, label in enumerate(self.uniq_labels):
+            class_prior_prob = np.log(self.class_prior_prob[index]) # Get log probability of each class
+            class_conditional_prob = np.sum(np.log(self.get_likelihood(index,x))) # Get the likelihood from PDF (Probability Density Function). It is based on Per Feature so we have to add everything
+            posteriors.append(class_prior_prob + class_conditional_prob) # log(p_class) + log(p(x_i)) == (p_class * x_i)
+        return self.uniq_labels[np.argmax(posteriors)] # Return the class label with the highest probability
+
+
+    def predict(self,X_test:np.ndarray):
+        '''
+        Predict on a Given Test Data
+        args:
+            X_test: Test Sample Data Points
+        '''
+        return [self.get_label(x) for x in X_test]
+    
+
