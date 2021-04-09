@@ -4,9 +4,23 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import random
 from collections import Counter
+from typing import List,Tuple,Dict
 
 SEED = 13
 np.random.seed(SEED)
+
+
+def minkowski_distance(a:np.ndarray,b:np.ndarray,p:int=2)->float:
+        '''
+        Get the distance between two points based on Minkowski distance. It is just a generalised form of many distance given value of 'p'.
+        For p = 2, it'll give Euclidean distance and for p = 1, it'll give Manhattan distance.
+
+        args:
+            a: array of features
+            b: array of features
+            p: distance specifier. Default is 2 which gives Euclidean Distance
+        '''
+        return np.power(np.sum(np.power(np.abs(a-b),p)),1/p)
 
 
 class UnivariantLinearRegression():    
@@ -387,18 +401,6 @@ class KNN:
         '''
         self.k = k
 
-
-    def minkowski_distance(self,a:np.ndarray,b:np.ndarray,p:int=2)->float:
-        '''
-        Get the distance between two points based on Minkowski distance. It is just a generalised form of many distance given value of 'p'.
-        For p = 2, it'll give Euclidean distance and for p = 1, it'll give Manhattan distance.
-
-        args:
-            a: array of features
-            b: array of features
-            p: distance specifier
-        '''
-        return np.power(np.sum(np.power(np.abs(a-b),p)),1/p)
     
 
     def fit(self,X_train:np.ndarray,y_train:np.ndarray):
@@ -416,7 +418,7 @@ class KNN:
         Return the distance of a SINGLE data point to whole of the training data and produce Y label
         x_test: 1-D Numpy array of Single data point at a time
         '''
-        distances = [self.minkowski_distance(x_test,x_each) for x_each in self.X_train] # Get distances for each point in train data
+        distances = [minkowski_distance(x_test,x_each) for x_each in self.X_train] # Get distances for each point in train data
         top_k_indices = np.argsort(distances[:self.k]) # Get indices of top K data points which are the closest
         top_k_labels = [self.y_train[i] for i in top_k_indices] # Get the Y labels of each TOP-K point who are the closest
         return Counter(top_k_labels).most_common(1)[0][0] # First element in labels is the most frequently occured element
@@ -497,5 +499,114 @@ class BayesClassifier:
             X_test: Test Sample Data Points
         '''
         return [self.get_label(x) for x in X_test]
-    
 
+
+class KMeans:
+    '''
+    Implement K-Means Clustering. Unsupervised Learning method to cluster the data into given 'K' groups
+    '''
+    def __init__(self,K:int=3,max_iter:int=100,):
+        '''
+        Initialize the class for the K-Means Clustering
+        args:
+            K: Number of Clusters to build from the data
+            max_iter: Maximum iteration to stop the Mean Finding and Cluster Formation condition
+        '''
+        self.K = K
+        self.max_iter = max_iter
+
+
+    def get_nearest_centroid(self,feature:np.ndarray,centroids:list)->int:
+        '''
+        Get the closest cluster index based on Euclidean Distance. We use Minowski distance with p = 2 which is same as Euclidean distance
+        args:
+            feature: 1-D Array of single Numpy data points
+            centroids: List of all the centroids available. Each Centroid is a data point in itself
+        returns:
+            Index of the centroid from the given list which is closest to the given data point
+        '''
+        distances = [minkowski_distance(feature,cent) for cent in centroids]
+        return np.argmin(distances) # return the index where distance is minimum. This is the index of the the centroid logically
+
+    
+    def update_clusters(self,X:np.ndarray,centroids:List[np.ndarray])->List[np.ndarray]:
+        '''
+        Return New clusters based on Existing clusters and the current centroids
+        args:
+            X: 2-D Data of features
+            centroids: Existing centroids in data
+        returns:
+            List of Numpy arrays of length K (No of clusters)
+        '''
+        clusters = [[] for _ in range(self.K)] # make K empty clusters
+        for feature_index, feature in enumerate(X): # get each feature vector
+            new_centroid_id = self.get_nearest_centroid(feature, centroids) # get the closest centroid of each data point based on it's distance to all centroids
+            clusters[new_centroid_id].append(feature_index) # Add the feature index in the corresponding cluster so that you can get the centroid again next time and repeat it
+        return clusters
+
+    
+    def get_new_centroids(self,X:np.ndarray,clusters:List[list])->np.ndarray:
+        '''
+        Make new centroids based on the data given in each cluster
+        args:
+            X: Numpy array data of features
+            clusters: List of list which contains the ids of each data point in each of the cluster
+        out:
+            Numpy array of shape (No of Clusters, Feature vector size) indicating the mean of the centroid at a given index
+        '''
+        centroids = np.zeros((self.K, self.feat))
+        for cluster_index, cluster in enumerate(clusters):
+            cluster_mean = np.mean(X[cluster],axis=0) # works as X[[1,4,9,11]].. etc where [1,4,9,11,..] are the indices of data points which are in a specific cluster
+            centroids[cluster_index] = cluster_mean
+        return centroids
+
+
+    def has_converged(self,old_centroids:np.ndarray,new_centroids:np.ndarray)->bool:
+        '''
+        Give the Convergence condition to stop the iteration of model. IF the convergence has reached, break the loop before even reaching max_iter condition
+        args:
+            old_centroids: Centroids before the updation
+            new_centroids: Updated centroids in the same epoch
+        returns:
+            Boolean value whether the model has converged or not
+        '''
+        # Get the distance of each and every old vs new centroid and check whether there was any improvement from the last. 
+        # #You can add tolerance which check if the improvement is greater than some number or not
+        return sum([minkowski_distance(old_centroids[i],new_centroids[i]) for i in range(self.K)]) == 0 
+
+    
+    def predict_cluster_label(self,X:np.ndarray, clusters:List[list])->np.ndarray:
+        '''
+        Get the correct label for each data point in point. For example, First data point belongs to 3rd cluster, 2nd belongs to 1st cluster and so on
+        args:
+            X: Numpy array of original data
+            clusters: List of list which contains the ids of data points belonging to a specific cluster for ex [[0,4,5,7,8,9], [1,2,3,6]] given 10 data points and 2 clusters
+        out:
+            Returns a 1-D numpy array indicating which data point belongs to which cluster
+        '''
+        labels = np.empty(self.n) # We can't do np.zeros because 0 is the index of a cluster also in our use case
+        for cluster_index, cluster in enumerate(clusters):
+            for data_point_index in cluster: # cluster is a single cluster which contains ids of the data points belonging to it
+                labels[data_point_index] = cluster_index # data point i belong to cluster j
+        return labels
+
+
+    def fit_predict(self,X:np.ndarray):
+        '''
+        Fit and predict the model. Return the class labels or Cluster labels for each data point present in X
+        args:
+            X: Array of features of data points
+        '''
+        self.n, self.feat = X.shape # no of samples and length of feature vector per sample
+        init_centroid_ids = np.random.choice(a=self.n, size=self.K, replace=False) # generate K UNIQUE random numbers from 0 to n to act as ids for initial centroids
+        self.centroids = [X[i] for i in init_centroid_ids] # initialise centroids as random in the starting
+
+        for _ in range(self.max_iter): # Run iteration for these many epochs. We can use a tolerance factor which will break it even before
+            self.clusters = self.update_clusters(X,self.centroids) # update the clusters
+            old_centroids = self.centroids
+            self.centroids = self.get_new_centroids(X,self.clusters) # shift the centroids per iteration
+
+            if self.has_converged(old_centroids,self.centroids): # if the model has converged, don't wait for the loop to run for longer
+                break
+        
+        return self.predict_cluster_label(X, self.clusters) # return cluster label for each and every data point
