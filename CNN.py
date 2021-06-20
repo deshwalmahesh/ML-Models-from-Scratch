@@ -88,18 +88,27 @@ class Conv2DLayer:
 
         output: Convolved Image batch with new height, width and new detected features
         '''
-        padding_size = 0 # How to implement self.padding = 'same'?
-        if isinstance(self.padding, int): # If specified padding
-            padding_size = self.padding
-        
         batch_size, h_old, w_old, num_features_old = features_batch.shape # [batch size, height, width, no of features (channels) from the previous layer]
         filter_size, filter_size, num_features_old, num_of_filters_new = self.kernel_matrices.shape # [filter_size, filter_size, num_features_old, num_of_filters_new]
 
-        # New Height/Width is dependent on the old height/ width, stride, filter size, and amount of padding
-        h_new = int((h_old + (2 * padding_size) - filter_size) / self.stride) + 1
-        w_new = int((w_old + (2 * padding_size) - filter_size) / self.stride) + 1
+        if isinstance(self.padding, int): # If specified padding
+            padding_size = self.padding
 
-        padded_batch = add_padding(features_batch, padding_size) # Pad the current input. third param is 0 by default so it is zero padding
+            # New Height/Width is dependent on the old height/ width, stride, filter size, and amount of padding
+            h_new = int((h_old + (2 * padding_size) - filter_size) / self.stride) + 1
+            w_new = int((w_old + (2 * padding_size) - filter_size) / self.stride) + 1
+
+            padded_batch = add_padding(features_batch, padding_size) # Pad the current input. third param is 0 by default so it is zero padding
+
+        elif isinstance(self.padding,str) and self.padding == 'same': # Same padding means the output height and width are same as the incoming features
+            h_new = h_old # Same as old
+            w_new = w_old
+
+            h_pad = int(((((self.stride * h_old) -1) - h_old + filter_size) / 2) / 2) # Use the above formula to calculate the padding in y-direction or height
+            w_pad = int(((((self.stride * w_old) -1) - w_old + filter_size) / 2) / 2) # Padding for width. Division in both cases because same padding is done left,right and up,down
+
+            padded_batch = add_padding(features_batch, (h_pad, w_pad)) # y_pad is used up and below in the same level. So is width
+
 
         # This will act as an Input to the layer Next to it
         output = np.zeros([batch_size, h_new, w_new, num_of_filters_new]) # batch size will be same but height, width and no of filters will be changed
@@ -128,15 +137,3 @@ class Conv2DLayer:
             return relu(output)
 
         return output
-
-
-
-
-
-
-
-
-
-
-
-

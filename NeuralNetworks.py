@@ -29,7 +29,7 @@ class Dense:
         args:
             Pass in the result as numpy array of features input or output from another layer
         '''
-        self.output = np.dot(X, self.W) + self.b # y = W.X + b  (X dot (W_Transpose)) 
+        self.output = np.matmul(X, self.W) + self.b # y = W.X + b  (X dot (W_Transpose)) 
 
 
 class ReLu:
