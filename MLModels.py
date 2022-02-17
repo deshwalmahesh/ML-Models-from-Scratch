@@ -435,6 +435,7 @@ class KNN:
 class BayesClassifier:
     '''
     Class to perform Naive Bayes Classification (Gaussian on Normally distributed continuous values)
+    https://towardsdatascience.com/all-about-naive-bayes-8e13cef044cf
     https://www.youtube.com/watch?v=O2L2Uv9pdDA
     https://www.youtube.com/watch?v=H3EjCKtlVog
     https://www.quora.com/What-is-the-difference-between-the-the-Gaussian-Bernoulli-Multinomial-and-the-regular-Naive-Bayes-algorithms
