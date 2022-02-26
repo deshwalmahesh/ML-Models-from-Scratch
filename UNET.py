@@ -12,20 +12,18 @@ class ConvolutionBlock(nn.Module):
     '''
     The basic Convolution Block Which Will have Convolution -> RelU -> Convolution -> RelU
     '''
-    def __init__(self, blockwise_features, out_features, upsample:bool = False,):
+    def __init__(self, input_features, out_features):
         '''
         args:
-            upsample: If True, then use TransposedConv2D (Means it being used in the decoder part) instead MaxPooling 
             batch_norm was introduced after UNET so they did not know if it existed. Might be useful
         '''
         super().__init__()
         self.network = nn.Sequential(
-            nn.Conv2d(blockwise_features, out_features, kernel_size = 3, padding= 1), # padding is 0 by default, 1 means the input width, height == out width, height
+            nn.Conv2d(input_features, out_features, kernel_size = 3, padding= 0), # padding is 0 by default, 1 means the input width, height == out width, height
             nn.ReLU(),
-            nn.Conv2d(out_features, out_features, kernel_size = 3, padding = 1),
+            nn.Conv2d(out_features, out_features, kernel_size = 3, padding = 0),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size = 2, stride = 2)  if not upsample else nn.ConvTranspose2d(out_features, out_features//2, kernel_size = 2, )  # As it is said in the paper that it TransPose2D halves the features 
-        )
+            )
 
     def forward(self, feature_map_x):
         '''
@@ -45,49 +43,80 @@ class Encoder(nn.Module):
             blockwise_features = Each block has it's own input and output features. it means first ConV block will output 64 features, second 128 and so on
         '''
         super().__init__()
-        # blockwise_features = [image_channels, 64, 128, 256, 512]
-        # out_features = [64, 128, 256, 512, 1024] 
-
-        # Below code is just a logic to create N layers dynamically for the above 2 commented lines. Can be done in multiple different ways. Can be hardcoded
-        out_features = blockwise_features.copy() # because we need to pop() the element and without copy, it is just aliasing in OOP
-        blockwise_features.insert(0, image_channels) # Add the first element as the channels for the image
-        out_features.append(blockwise_features[-1]*2)
-
         repeat = len(blockwise_features) # how many layers we need to add len of blockwise_features == len of out_features
 
+        self.layers = nn.ModuleList()
+        
+        for i in range(repeat):
+            if i == 0:
+                in_filters = image_channels
+                out_filters = blockwise_features[0]
+            else:
+                in_filters = blockwise_features[i-1]
+                out_filters = blockwise_features[i]
+            
+            self.layers.append(ConvolutionBlock(in_filters, out_filters))
 
-        self.layers = nn.ModuleList(
-            [ConvolutionBlock(blockwise_features = blockwise_features[i], out_features = out_features[i]) for i in range(repeat)]
-        )
+        self.maxpool = nn.MaxPool2d(kernel_size = 2, stride = 2)  # Since There is No gradient for Maxpooling, You can instantiate a single layer for the whole operation
+        # https://datascience.stackexchange.com/questions/11699/backprop-through-max-pooling-layers
+        
     
     def forward(self, feature_map_x):
+        skip_connections = [] # i_th level of features from Encoder will be conatenated with i_th level of decoder before applying CNN
+        
         for layer in self.layers:
             feature_map_x = layer(feature_map_x)
-        return feature_map_x
+            skip_connections.append(feature_map_x)
+            feature_map_x = self.maxpool(feature_map_x) # Use Max Pooling AFTER storing the Skip connections
 
+        return feature_map_x, skip_connections
+
+    
+class BottleNeck(nn.Module):
+    '''
+    ConvolutionBlock without Max Pooling
+    '''
+    def __init__(self, input_features = 512, output_features = 1024):
+        super().__init__()
+        self.layer = ConvolutionBlock(input_features, output_features)
+
+        
+    def forward(self, feature_map_x):
+        return self.layer(feature_map_x)
+        
 
 class Decoder(nn.Module):
     '''
     '''
-    def __init__(self, output_classes:int = 2, blockwise_features = [1024, 512, 256, 128, 64]):
+    def __init__(self, blockwise_features = [512, 256, 128, 64]):
         '''
         Do exactly opposite of Encoder
-        args:
-            output_classes: If you want to segment B&W (foreground vs background), it'll be 2, if [man, car, background]: it'll be 3 and so on
         '''
         super().__init__()
 
-        out_features = blockwise_features[1:] # everything except the first value
-        out_features.append(output_classes)
+        self.upsample_layers = nn.ModuleList()
+        self.conv_layers = nn.ModuleList()
+        
+        for i, feature in enumerate(blockwise_features):
 
-        repeat = len(blockwise_features)
+            self.upsample_layers.append(nn.ConvTranspose2d(in_channels = feature*2, out_channels = feature, kernel_size = 2, stride = 2))  # Takes in 1024-> 512, takes 512->254 ......
 
-        self.layers = nn.ModuleList(
-            [ConvolutionBlock(blockwise_features = blockwise_features[i], out_features = out_features[i], upsample = True) for i in range(repeat)]
-        )
+            self.conv_layers.append(nn.ConvTranspose2d(in_channels = feature*2, out_channels = feature, kernel_size = 2, stride = 2)) # After Concatinating (512 + 512-> 1024), Use double Conv block
+        
     
-    def forward(self, feature_map_x):
-        for layer in self.layers:
-            feature_map_x = layer(feature_map_x)
+    def forward(self, feature_map_x, skip_connections):
+        '''
+        Steps go as:
+        1. Upsample
+        2. Concat Skip Connection
+        3. Apply ConvolutionBlock
+        '''
+
+        for i, layer in enumerate(self.conv_layers): # 4 levels, 4 skip connections, 4 upsampling, 4 Double Conv Block
+
+            feature_map_x = self.upsample_layers[i](feature_map_x) # step 1
+            feature_map_x = torch.cat((skip_connections[-i-1], feature_map_x), dim = 1) # step 2
+            feature_map_x = self.conv_layers[i](feature_map_x)
+
         return feature_map_x
 
