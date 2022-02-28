@@ -113,9 +113,16 @@ class Decoder(nn.Module):
         '''
 
         for i, layer in enumerate(self.conv_layers): # 4 levels, 4 skip connections, 4 upsampling, 4 Double Conv Block
-
+            skip_feature = skip_connections[-i-1]
             feature_map_x = self.upsample_layers[i](feature_map_x) # step 1
-            feature_map_x = torch.cat((skip_connections[-i-1], feature_map_x), dim = 1) # step 2
+
+            if skip_feature.shape[-1] != feature_map_x.shape[-1]: # The part of COPY CROP to make the dimensions equal
+                pad = (skip_feature.shape[-1] - feature_map_x.shape[-1]) // 2 # Half padding on each side, 
+                feature_map_x = nn.functional.pad(feature_map_x, pad = [pad,pad,pad,pad])
+
+            print(feature_map_x.shape)
+
+            feature_map_x = torch.cat((skip_feature, feature_map_x), dim = 1) # step 2, Concatinating along Channels or Features dimensions given [N,C,W,H]
             feature_map_x = self.conv_layers[i](feature_map_x)
 
         return feature_map_x
