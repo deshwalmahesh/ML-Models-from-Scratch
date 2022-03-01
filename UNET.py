@@ -1,5 +1,5 @@
 '''
-Whole UNet is divided in 3 parts: Endoder -> BottleNeck -> Decoder. There are skip connections between 'Nth' level of Encoder with Nth level of Decoder.
+Whole UNet is divided in 3 parts: Encoder -> BottleNeck -> Decoder. There are skip connections between 'Nth' level of Encoder with Nth level of Decoder.
 
 There is 1 basic entity called "Convolution" Block which has 3*3 Convolution (or Transposed Convolution during Upsampling) -> ReLu -> BatchNorm
 Then there is Maxpooling
@@ -100,30 +100,91 @@ class Decoder(nn.Module):
         for i, feature in enumerate(blockwise_features):
 
             self.upsample_layers.append(nn.ConvTranspose2d(in_channels = feature*2, out_channels = feature, kernel_size = 2, stride = 2))  # Takes in 1024-> 512, takes 512->254 ......
+            self.conv_layers.append(ConvolutionBlock(feature*2, feature)) # After Concatinating (512 + 512-> 1024), Use double Conv block
 
-            self.conv_layers.append(nn.ConvTranspose2d(in_channels = feature*2, out_channels = feature, kernel_size = 2, stride = 2)) # After Concatinating (512 + 512-> 1024), Use double Conv block
-        
     
-    def forward(self, feature_map_x, skip_connections):
+
+    def pad_or_crop(self, larger_feature, smaller_feature, kind = 'pad'):
         '''
-        Steps go as:
+        args:
+            larger_feature: In UNET, it is the Skip Connection Feature
+            smaller_feature: It is upsampled feature
+
+        Either 'pad' the smaller feature or 'crop' larger feature
+        Features MUST be square in size (width == height)
+        '''
+        assert kind in ['pad','crop'], "kind must be one of ['pad','crop']"
+        delta = (larger_feature.shape[-1] - smaller_feature.shape[-1])// 2 # how much to pad or crop on EACH side (there are 4 sides)
+        
+        if kind == 'pad':
+            return larger_feature, nn.functional.pad(smaller_feature, pad = (delta, delta, delta, delta, 0,0, 0,0)) #pad (height,height,width,width, channel,channel, batch,batch)
+        
+        else: # in case or cropping
+            size = larger_feature.shape[-1] # because width == height
+            return larger_feature[:,:,delta:size-delta, delta:size-delta], smaller_feature # crop the pixels from the boundries from each side of width and height
+        
+
+    def forward(self, feature_map_x, skip_connections, kind = 'crop'):
+        '''
+        args:
+            kind: When Concatinating, whether to perform Cropping or Padding
+
+        Repeat Steps as:
         1. Upsample
-        2. Concat Skip Connection
-        3. Apply ConvolutionBlock
+        2. Make the two features (skip and current) compatible in height and width
+        3. Concat Skip Connection
+        4. Apply ConvolutionBlock
         '''
 
         for i, layer in enumerate(self.conv_layers): # 4 levels, 4 skip connections, 4 upsampling, 4 Double Conv Block
             skip_feature = skip_connections[-i-1]
             feature_map_x = self.upsample_layers[i](feature_map_x) # step 1
 
-            if skip_feature.shape[-1] != feature_map_x.shape[-1]: # The part of COPY CROP to make the dimensions equal
-                pad = (skip_feature.shape[-1] - feature_map_x.shape[-1]) // 2 # Half padding on each side, 
-                feature_map_x = nn.functional.pad(feature_map_x, pad = [pad,pad,pad,pad])
+            if skip_feature.shape[-1] != feature_map_x.shape[-1]: # step 2 The part of CROP / PAD to make the dimensions equal
+                skip_feature, feature_map_x = self.pad_or_crop(skip_feature, feature_map_x, kind = kind)
 
-            print(feature_map_x.shape)
-
-            feature_map_x = torch.cat((skip_feature, feature_map_x), dim = 1) # step 2, Concatinating along Channels or Features dimensions given [N,C,W,H]
-            feature_map_x = self.conv_layers[i](feature_map_x)
+            feature_map_x = torch.cat((skip_feature, feature_map_x), dim = 1) # step 3, Concatinating along Channels or Features dimensions given [N,C,W,H]
+            feature_map_x = self.conv_layers[i](feature_map_x) # Step 4
 
         return feature_map_x
 
+
+class UNET(nn.Module):
+    '''
+    Complete UNET Module
+    '''
+    def __init__(self, image_channels, num_classes, features_list = [64, 128, 256, 512]):
+        '''
+        Perform the whole 4 part step
+        1. Down Scaling
+        2. Bottleneck
+        3. Up Scaling
+        4. Prediction using 1x1 Convolution
+
+        args:
+            image_channels: any of 1 or 3 for Grayscale or RGB images
+            num_classes: Num of classes you want to predict. In Original UNET, 2 (black and white) were predicted
+        '''
+        super().__init__()
+
+        self.encoder = Encoder(image_channels, features_list)
+        self.bottleneck = BottleNeck(input_features = features_list[-1], output_features = features_list[-1]*2) # In-> 512, out-> 1024
+        self.decoder = Decoder(features_list[::-1]) # Reverse of Encoder features
+        # Apply 1x1 convolution
+        self.final_layer = nn.Conv2d(in_channels = features_list[0], out_channels = num_classes, kernel_size = 1) # Decoder will output 64 features  which will serve as input to this
+
+
+    def forward(self, image_batch):
+        '''
+        '''
+        features, skip_connections = self.encoder(image_batch)
+        features = self.bottleneck(features)
+        features = self.decoder(features, skip_connections)
+        return self.final_layer(features)
+
+
+def test_unet_code():
+    image = torch.randn(1,1, 572,572)
+    out = UNET(image_channels=1, num_classes=2)(image)
+    print(f"Input Shape: {image.shape} || Output Shape: {out.shape}")
+    print("Code Running Perfectly")

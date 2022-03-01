@@ -92,3 +92,8 @@ def DeepLabV3Plus(num_classes, backbone = ResNet50, image_shape = (512,512,3), r
     output = Conv2D(num_classes, kernel_size = 1, padding = 'same')(decoder_features) # step 4
     model = Model(inputs = backbone.input, outputs = output)
     return model
+
+
+def test_tensorflow_DeepLabv3_code():
+    print("Building Model with 20 final classes. Find the summary below....")
+    print(DeepLabV3Plus(20).summary())
