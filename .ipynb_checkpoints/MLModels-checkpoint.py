@@ -2,12 +2,9 @@ import numpy as np
 from math import log
 import pandas as pd
 import matplotlib.pyplot as plt
+import random
 from collections import Counter
-from typing import List
-
-
-from sklearn.datasets import make_blobs
-from IPython.display import display, clear_output
+from typing import List,Tuple,Dict
 
 SEED = 13
 np.random.seed(SEED)
@@ -613,106 +610,3 @@ class KMeans:
                 break
         
         return self.predict_cluster_label(X, self.clusters) # return cluster label for each and every data point
-
-
-class SVM:
-    '''
-    https://towardsdatascience.com/support-vector-machine-introduction-to-machine-learning-algorithms-934a444fca47
-    '''
-    def __init__(self, lr:float = 0.0005, C:float = 0.005, n_iters:int = 300):
-        '''
-        args:
-            lr: Learning Rate
-            C: Parameter for giving weightage to the Margin Loss. High C>1 means we're more concerned about Margin Loss than Classification and vice versa
-            n_iters: Number of iterations to run
-        '''
-        self.lr = lr
-        self.C = C
-        self.n_iters = n_iters
-        self.W = None # Weight Matrix
-        self.b = None # Bias 
-        
-        self.fig = plt.figure(figsize = (7,7))
-        self.ax = self.fig.add_subplot(1, 1, 1)
-        
-    
-    def fit(self, X, y, visualise = True):
-        '''
-        '''
-        
-        y = np.where(y <=0, -1,1) # If any element is <=0 in classes, convert it to -1 else 1. To make the Y labels as -1/1 instead of 0/1
-        N_samples, M_features = X.shape # No of samples, Number of features
-        
-        self.W = np.zeros(M_features)
-        self.b = 0
-        
-        for i in range(self.n_iters): # run the loop these many times
-            
-            for index, x in enumerate(X): # Iterate over each data point
-                fx = np.dot(X[index], self.W) - self.b # Linear Model Function
-                condition = y[index] * fx >= 1 # if y * f(x) >= 1 If correctly classified, Hinge Loss (classification Loss) depends only on Margin |W| else both
-            
-                if condition: # If correctly classified, find partial derivatives only on the basis of Margin Loss
-                    dJ_by_dW = 2 * self.C * self.W # Partial Derivative of Loss with respect to Weight
-                    dJ_by_dB = 0 # Partial Derivative of Loss with respect to Bias
-
-                else: # If incorrectly classified, Find partial derivatives based on both Margin as well Hinge Loss
-                    dJ_by_dW = (2 * self.C * self.W) - np.dot(X[index], y[index]) # Partial Derivative of Loss with respect to Weight
-                    dJ_by_dB = y[index] # Partial Derivative of Loss with respect to Bias
-
-                # Update the weight and bias using Gradient Descent Updation rule
-                self.W -= self.lr * dJ_by_dW
-                self.b -= self.lr * dJ_by_dB
-                
-            if visualise and (not i%10):
-                SVM.plot(self.fig, self.ax,self.W, self.b, X, y, i)
-                
-                
-    def predict(self, X):
-        '''
-        '''
-        result = np.dot(X, self.W) - self.b
-        return np.sign(result) # returns  element wise sign `-1 if x < 0, 1 if x > 0`
-    
-    
-    @staticmethod
-    def plot(fig, ax, W,b, X, y, iter_):
-        '''
-        Visualise the results
-        '''
-        def get_hyperplane_value(x, w, b, offset):
-            '''
-            Generate Hyperplane for the plot
-            '''
-            return (-w[0] * x + b + offset) / w[1]
-
-
-        ax.cla()
-        ax.scatter(X[:, 0], X[:, 1], marker="o", c = y)
-
-        x0_1 = np.amin(X[:, 0])
-        x0_2 = np.amax(X[:, 0])
-
-        x1_1 = get_hyperplane_value(x0_1, W, b, 0)
-        x1_2 = get_hyperplane_value(x0_2, W, b, 0)
-
-        x1_1_m = get_hyperplane_value(x0_1, W, b, -1)
-        x1_2_m = get_hyperplane_value(x0_2, W, b, -1)
-
-        x1_1_p = get_hyperplane_value(x0_1, W, b, 1)
-        x1_2_p = get_hyperplane_value(x0_2, W, b, 1)
-
-        ax.plot([x0_1, x0_2], [x1_1, x1_2], "y--")
-        ax.plot([x0_1, x0_2], [x1_1_m, x1_2_m], "k")
-        ax.plot([x0_1, x0_2], [x1_1_p, x1_2_p], "k")
-
-        x1_min = np.amin(X[:, 1])
-        x1_max = np.amax(X[:, 1])
-        ax.set_ylim([x1_min - 3, x1_max + 3])
-
-        ax.set_title(f"Iter No: {str(iter_)}")
-
-        display(fig) 
-        plt.pause(0.2)
-        clear_output(wait = True)
-
