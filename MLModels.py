@@ -178,6 +178,8 @@ class LogisticRegression():
         self.itr = itr
         self.thresh = thresh 
         self.eps = eps
+        self.W = None
+        self.b = None
         self.loss = 0 # it has to be Binary Cross Entropy
         self.help_links = {'Cross_Entropy_loss':'https://towardsdatascience.com/understanding-binary-cross-entropy-log-loss-a-visual-explanation-a3ac6025181a',
                             'Odd_LogOdd_Logits':'https://youtu.be/ARfXDSkQf1Y',
@@ -613,7 +615,6 @@ class SVM:
         plt.pause(0.2)
         clear_output(wait = True)
 
-from MLModels import *
             
 class KMeansClustering:
     '''

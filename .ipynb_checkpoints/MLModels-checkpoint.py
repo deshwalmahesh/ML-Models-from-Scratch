@@ -2,12 +2,21 @@ import numpy as np
 from math import log
 import pandas as pd
 import matplotlib.pyplot as plt
-import random
 from collections import Counter
-from typing import List,Tuple,Dict
+from typing import List
+
+
+from sklearn.datasets import make_blobs, load_digits
+from sklearn.decomposition import PCA as sk_PCA
+from IPython.display import display, clear_output
 
 SEED = 13
 np.random.seed(SEED)
+
+def available_models():
+    return [
+        "UnivariantLinearRegression", "LinearRegression", "BayesClassifier", "LogisticRegression", "SVM", "KNN", "KMeansClustering","PCA", "LDA"
+    ]
 
 
 def minkowski_distance(a:np.ndarray,b:np.ndarray,p:int=2)->float:
@@ -169,6 +178,8 @@ class LogisticRegression():
         self.itr = itr
         self.thresh = thresh 
         self.eps = eps
+        self.W = None
+        self.b = None
         self.loss = 0 # it has to be Binary Cross Entropy
         self.help_links = {'Cross_Entropy_loss':'https://towardsdatascience.com/understanding-binary-cross-entropy-log-loss-a-visual-explanation-a3ac6025181a',
                             'Odd_LogOdd_Logits':'https://youtu.be/ARfXDSkQf1Y',
@@ -501,7 +512,111 @@ class BayesClassifier:
         return [self.get_label(x) for x in X_test]
 
 
-class KMeans:
+class SVM:
+    '''
+    Support Vector Machine Classifier
+    https://towardsdatascience.com/support-vector-machine-introduction-to-machine-learning-algorithms-934a444fca47
+    '''
+    def __init__(self, lr:float = 0.0005, C:float = 0.005, n_iters:int = 300):
+        '''
+        args:
+            lr: Learning Rate
+            C: Parameter for giving weightage to the Margin Loss. High C>1 means we're more concerned about Margin Loss than Classification and vice versa
+            n_iters: Number of iterations to run
+        '''
+        self.lr = lr
+        self.C = C
+        self.n_iters = n_iters
+        self.W = None # Weight Matrix
+        self.b = None # Bias 
+        
+        self.fig = plt.figure(figsize = (7,7))
+        self.ax = self.fig.add_subplot(1, 1, 1)
+        
+    
+    def fit(self, X, y, visualise = True):
+        '''
+        Liinear Model with 2 conditions based if y.f(x) is >=1 or not. So computes Gradients Descent on 2 different conditions and update weights according to that
+        '''
+        
+        y = np.where(y <=0, -1,1) # If any element is <=0 in classes, convert it to -1 else 1. To make the Y labels as -1/1 instead of 0/1
+        N_samples, M_features = X.shape # No of samples, Number of features
+        
+        self.W = np.zeros(M_features)
+        self.b = 0
+        
+        for i in range(self.n_iters): # run the loop these many times
+            
+            for index, x in enumerate(X): # Iterate over each data point
+                fx = np.dot(X[index], self.W) - self.b # Linear Model Function
+                condition = y[index] * fx >= 1 # if y * f(x) >= 1 If correctly classified, Hinge Loss (classification Loss) depends only on Margin |W| else both
+            
+                if condition: # If correctly classified, find partial derivatives only on the basis of Margin Loss
+                    dJ_by_dW = 2 * self.C * self.W # Partial Derivative of Loss with respect to Weight
+                    dJ_by_dB = 0 # Partial Derivative of Loss with respect to Bias
+
+                else: # If incorrectly classified, Find partial derivatives based on both Margin as well Hinge Loss
+                    dJ_by_dW = (2 * self.C * self.W) - np.dot(X[index], y[index]) # Partial Derivative of Loss with respect to Weight
+                    dJ_by_dB = y[index] # Partial Derivative of Loss with respect to Bias
+
+                # Update the weight and bias using Gradient Descent Updation rule
+                self.W -= self.lr * dJ_by_dW
+                self.b -= self.lr * dJ_by_dB
+                
+            if visualise and (not i%10):
+                SVM.plot(self.fig, self.ax,self.W, self.b, X, y, i)
+                
+                
+    def predict(self, X):
+        '''
+        '''
+        result = np.dot(X, self.W) - self.b
+        return np.sign(result) # returns  element wise sign `-1 if x < 0, 1 if x > 0`
+    
+    
+    @staticmethod
+    def plot(fig, ax, W,b, X, y, iter_):
+        '''
+        Visualise the results
+        '''
+        def get_hyperplane_value(x, w, b, offset):
+            '''
+            Generate Hyperplane for the plot
+            '''
+            return (-w[0] * x + b + offset) / w[1]
+
+
+        ax.cla()
+        ax.scatter(X[:, 0], X[:, 1], marker="o", c = y)
+
+        x0_1 = np.amin(X[:, 0])
+        x0_2 = np.amax(X[:, 0])
+
+        x1_1 = get_hyperplane_value(x0_1, W, b, 0)
+        x1_2 = get_hyperplane_value(x0_2, W, b, 0)
+
+        x1_1_m = get_hyperplane_value(x0_1, W, b, -1)
+        x1_2_m = get_hyperplane_value(x0_2, W, b, -1)
+
+        x1_1_p = get_hyperplane_value(x0_1, W, b, 1)
+        x1_2_p = get_hyperplane_value(x0_2, W, b, 1)
+
+        ax.plot([x0_1, x0_2], [x1_1, x1_2], "y--")
+        ax.plot([x0_1, x0_2], [x1_1_m, x1_2_m], "k")
+        ax.plot([x0_1, x0_2], [x1_1_p, x1_2_p], "k")
+
+        x1_min = np.amin(X[:, 1])
+        x1_max = np.amax(X[:, 1])
+        ax.set_ylim([x1_min - 3, x1_max + 3])
+
+        ax.set_title(f"Iter No: {str(iter_)}")
+
+        display(fig) 
+        plt.pause(0.2)
+        clear_output(wait = True)
+
+            
+class KMeansClustering:
     '''
     Implement K-Means Clustering. Unsupervised Learning method to cluster the data into given 'K' groups
     '''
@@ -514,6 +629,9 @@ class KMeans:
         '''
         self.K = K
         self.max_iter = max_iter
+        self.cluster_centers_ = None
+        self.fig = plt.figure(figsize = (10,10))
+        self.ax = self.fig.add_subplot(1, 1, 1)
 
 
     def get_nearest_centroid(self,feature:np.ndarray,centroids:list)->int:
@@ -542,6 +660,7 @@ class KMeans:
         for feature_index, feature in enumerate(X): # get each feature vector
             new_centroid_id = self.get_nearest_centroid(feature, centroids) # get the closest centroid of each data point based on it's distance to all centroids
             clusters[new_centroid_id].append(feature_index) # Add the feature index in the corresponding cluster so that you can get the centroid again next time and repeat it
+        
         return clusters
 
     
@@ -591,7 +710,7 @@ class KMeans:
         return labels
 
 
-    def fit_predict(self,X:np.ndarray):
+    def fit_predict(self,X:np.ndarray, visualise:bool = True):
         '''
         Fit and predict the model. Return the class labels or Cluster labels for each data point present in X
         args:
@@ -601,12 +720,39 @@ class KMeans:
         init_centroid_ids = np.random.choice(a=self.n, size=self.K, replace=False) # generate K UNIQUE random numbers from 0 to n to act as ids for initial centroids
         self.centroids = [X[i] for i in init_centroid_ids] # initialise centroids as random in the starting
 
-        for _ in range(self.max_iter): # Run iteration for these many epochs. We can use a tolerance factor which will break it even before
+        for i in range(self.max_iter): # Run iteration for these many epochs. We can use a tolerance factor which will break it even before
             self.clusters = self.update_clusters(X,self.centroids) # update the clusters
             old_centroids = self.centroids
             self.centroids = self.get_new_centroids(X,self.clusters) # shift the centroids per iteration
 
             if self.has_converged(old_centroids,self.centroids): # if the model has converged, don't wait for the loop to run for longer
+                print("Converged")
                 break
+            
+            if visualise and (not i % 2 ):
+                labels = self.predict_cluster_label(X, self.clusters).astype(int)
+                # data = sk_PCA(2).fit_transform(X)
+                KMeansClustering.plot(self.fig, self.ax, X, self.centroids, labels, i)
         
         return self.predict_cluster_label(X, self.clusters) # return cluster label for each and every data point
+            
+            
+    @staticmethod
+    def plot(fig, ax, df, centroids, label, iter_):
+        '''
+        Plot the figure
+        '''
+        u_labels = np.unique(label)
+        clear_output(wait = True)
+
+        ax.cla()
+        for i in u_labels:
+            ax.scatter(df[label == i , 0] , df[label == i , 1] , label = i)
+
+        ax.scatter(centroids[:,0] , centroids[:,1] , s = 80, color = 'black')
+
+        ax.set_title(f"Iteration: {str(iter_)}")
+        ax.legend()
+
+        display(fig) 
+        plt.pause(0.5)
