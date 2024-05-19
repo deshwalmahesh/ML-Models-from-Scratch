@@ -98,17 +98,48 @@ class MultiHeadAttention:
         
     def forward(self,):
         pass
-        
-
-        
 
 
 
+# -------- Self-Attention -------
+class NumpySelfAttention():
+    def __init__(self, EMBED_DIM, DIM_KQ, DIM_V):
+        super().__init__()
+        self.DIM_KQ = DIM_KQ # Key and Query Attention Dimension is same in Self- Attention
 
+        # These are the parameters that are learnable. These weights will change in backprop for attention
+        self.W_query = np.random.uniform(-1,1,(EMBED_DIM, self.DIM_KQ)) # Query Weight Matrix
+        self.W_key = np.random.uniform(-1,1, (EMBED_DIM, self.DIM_KQ)) # Key Weight Matrix
+        self.W_value = np.random.uniform(-1,1, (EMBED_DIM, DIM_V)) # Value Weight Matrix
     
+    def softmax(self, x, dim = 0):
+      e_x = np.exp(x - np.max(x))
+      return e_x / e_x.sum(axis=dim)
 
+    def forward(self, x):
+        """
+        Step-1: Multiply the incoming input (it could be embedding or output from a previous block) to the weight K,Q,V weight matrices
+        Step-2: Calculate Unnormalized Attention scores by multiplying the output of Key and Query from the Step-1
+        Step-3: Scale and Softmax the output of Step-2 to get normalized attention scores
+        Step-4: Multiply the Value output from Step-1 to the normalizes score from Step-3
+        """
+        keys = x @ self.W_key # Multiply Embedding with the Key Weight matric
+        queries = x @ self.W_query # Multiply Embedding with the Query Weight matric
+        values = x @ self.W_value # Multiply Embedding with the Value Weight matric
+        
+        attn_scores = queries @ keys.T  # unnormalized attention weights    
+        attn_weights = self.softmax(attn_scores / self.DIM_KQ**0.5, dim=-1) # Softmaxed + Scaled attention weights 
+        return attn_weights @ values # Context Vector
 
+SENT = "Real Saleem Shady please stand up" # 6 Tokens
+EMBED_DIM = 3 # Every token is represented by 3-D
+DIM_KQ = 4 # Dimension of Key and Query Weight Matrix
+DIM_V = 5 # Dimension of Value (can be same as KQ). Final Output will be [6 Tokens, 5 DIM_V]
+DUMMY_EMBEDDING = np.random.uniform(-1,1,(6, EMBED_DIM)) # 6 Tokens having 3-D Embedding
 
+NumpySelfAttention(EMBED_DIM, DIM_KQ, DIM_V).forward(DUMMY_EMBEDDING)
+
+# ---------------
 
 
 
