@@ -1,3 +1,7 @@
+"""
+Loss, Layers, Activations
+"""
+
 import numpy as np
 import math
 import nnfs
@@ -122,4 +126,69 @@ class EvaluationMetrics:
             y_pred = np.argmax(y_pred,axis=1) # [[0.1,0.2,0.7], [0.8,0.1,0.1]]
             
         return np.mean(y_true == y_pred)
+
+
+# ------- Pure NUMPY -------------
+"""
+LINK: https://aew61.github.io/blog/artificial_neural_networks/1_background/1.b_activation_functions_and_derivatives.html
+"""
+
+class ElementIndependent():
+  def __init__(self):
+    self.define = """These are functions which are NOT Dependent on the other elements in an array or Tensor. Ex: Sigmid, ReLU, TanH, Identity aka Linear
+    Here Jacobian "𝐉" IS a diagonal matrix and you DON'T have to perform Full Matrix Multiplication"""
+   
+  def plot(self, grad_fn = None):
+    f, ax = plt.subplots(1,2, figsize = (12,3))
+    plt.suptitle(act.__class__.__name__, size = 15)
+    
+    X = np.linspace(-5,5, 50)
+    ax[0].plot(X, self(X), color = "green")
+    ax[1].plot(X, self.grad(X),  color = "red")
+
+    ax[0].set_title("Forward Pass")
+    ax[1].set_title("Backward Pass")
+
+    ax[0].set_xlabel("Input values")
+    ax[0].set_ylabel("Output values")
+    ax[1].set_xlabel("Input values")
+    ax[1].set_ylabel("Gradients")
+
+    ax[0].grid()
+    ax[1].grid()
+    plt.show()
+
+class ElementDependent():
+  def __init__(self):
+    self.define = """These are functions which ARE Dependent on the other elements in an array or Tensor like Softmax
+    Here Jacobian "𝐉" is NOT a diagonal matrix and you HAVE TO perform Full Matrix Multiplication"""
+
+
+class Sigmoid(ElementIndependent):
+    def __call__(self, X):
+        return 1.0/(1.0 + np.exp(-X))
+
+    def grad(self, X):
+        Q = self(X) # calls the __call__()
+        return Q*(1-Q)
+
+
+class Tanh(ElementIndependent):
+  def __call__(self, X):
+      return np.tanh(X) # can use (np.exp(X) - np.exp(-X)) / (np.exp(X) + np.exp(-X))
+
+  def grad(self, X):
+      """Direct Numpy"""
+      return 1.0 - np.tanh(X)**2 # same as 1 - self(X)**2
+
+
+class ReLU(ElementIndependent):
+  def __call__(self, X):
+    return np.maximum(0, X) # Can use np.clip(X, a_min = 0, a_max = np.inf)
+
+  def grad(self, X):
+      """
+      It is NOT differentiable at 0. So people use "Sub Gradients". Check Legendary Convdersation: https://www.quora.com/Why-does-ReLU-work-with-backprops-if-its-non-differentiable
+      """
+      return np.where(X<=0, 0, 1)
         
