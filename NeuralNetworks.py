@@ -133,17 +133,14 @@ class EvaluationMetrics:
 LINK: https://aew61.github.io/blog/artificial_neural_networks/1_background/1.b_activation_functions_and_derivatives.html
 """
 
-import matplotlib.pyplot as plt
-import numpy as np
-
 class ElementIndependent():
   def __init__(self):
     self.define = """These are functions which are NOT Dependent on the other elements in an array or Tensor. Ex: Sigmid, ReLU, TanH, Identity aka Linear
     Here Jacobian "𝐉" IS a diagonal matrix and you DON'T have to perform Full Matrix Multiplication"""
-   
+
   def plot(self, ax = None):
     if ax is None: _, ax = plt.subplots(1,1, figsize = (5,3))
-    
+
     X = np.linspace(-5,5, 50)
     plt.suptitle(self.__class__.__name__, size = 15)
     ax.plot(X, self(X), color = "green", label = "Activation Output")
@@ -195,4 +192,5 @@ class ReLU(ElementIndependent):
       """
       It is NOT differentiable at 0. So people use "Sub Gradients". Check Legendary Convdersation: https://www.quora.com/Why-does-ReLU-work-with-backprops-if-its-non-differentiable
       """
-      return np.where(X<=0, 0, 1)
+      if not self.is_elu: return np.where(X<=0, self.alpha, 1)
+      return np.where(X<=0, self.alpha*(np.exp(X)), 1)
