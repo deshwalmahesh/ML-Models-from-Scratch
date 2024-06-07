@@ -133,6 +133,13 @@ class EvaluationMetrics:
 LINK 1: https://aew61.github.io/blog/artificial_neural_networks/1_background/1.b_activation_functions_and_derivatives.html
 LINK 2: https://ml-explained.com/blog/activation-functions-explained
 LINK 3: https://github.com/ddbourgin/numpy-ml/blob/master/numpy_ml/neural_nets/activations/activations.py
+
+
+AMAZING THING: To see the equations of any forward or backward pass, just use the below structure.Install `latexify` package first
+
+@latexify.function(use_math_symbols=True, reduce_assignments=True)
+def gelu(X): return 0.5 * X * (1 + np.tanh(np.sqrt(2 / np.pi) * (X + 0.044715 * X ** 3))) # THIS IS THE __call__ from the GeLU class
+gelu # this will render an equation in Notebook
 """
 import matplotlib.pyplot as plt
 import numpy as np
