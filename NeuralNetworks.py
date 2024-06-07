@@ -133,30 +133,28 @@ class EvaluationMetrics:
 LINK: https://aew61.github.io/blog/artificial_neural_networks/1_background/1.b_activation_functions_and_derivatives.html
 """
 
+import matplotlib.pyplot as plt
+import numpy as np
+
 class ElementIndependent():
   def __init__(self):
     self.define = """These are functions which are NOT Dependent on the other elements in an array or Tensor. Ex: Sigmid, ReLU, TanH, Identity aka Linear
     Here Jacobian "𝐉" IS a diagonal matrix and you DON'T have to perform Full Matrix Multiplication"""
    
-  def plot(self, grad_fn = None):
-    f, ax = plt.subplots(1,2, figsize = (12,3))
-    plt.suptitle(act.__class__.__name__, size = 15)
+  def plot(self, ax = None):
+    if ax is None: _, ax = plt.subplots(1,1, figsize = (5,3))
     
     X = np.linspace(-5,5, 50)
-    ax[0].plot(X, self(X), color = "green")
-    ax[1].plot(X, self.grad(X),  color = "red")
+    plt.suptitle(self.__class__.__name__, size = 15)
+    ax.plot(X, self(X), color = "green", label = "Activation Output")
+    ax.plot(X, self.grad(X),  color = "red", label = "Gradients")
 
-    ax[0].set_title("Forward Pass")
-    ax[1].set_title("Backward Pass")
+    ax.set_xlabel("Input")
+    ax.set_ylabel("Output")
 
-    ax[0].set_xlabel("Input values")
-    ax[0].set_ylabel("Output values")
-    ax[1].set_xlabel("Input values")
-    ax[1].set_ylabel("Gradients")
-
-    ax[0].grid()
-    ax[1].grid()
-    plt.show()
+    ax.grid()
+    ax.legend()
+    return ax
 
 class ElementDependent():
   def __init__(self):
@@ -183,12 +181,18 @@ class Tanh(ElementIndependent):
 
 
 class ReLU(ElementIndependent):
+  def __init__(self, alpha = 0, is_elu = False):
+    """Generalised Relu. Given values of Alpha(Slope) and is_elu, it acts as ReLU (alpha = 0), Leaky ReLU (alpha <0), Perametric ReLU (alpha is 'LERANED') and ELU"""
+    self.alpha = alpha
+    self.is_elu = is_elu
+    self.__class__.__name__ = self.__class__.__name__ + f" (Alpha = {alpha} + ELU = {is_elu})"
+
   def __call__(self, X):
-    return np.maximum(0, X) # Can use np.clip(X, a_min = 0, a_max = np.inf)
+    if not self.is_elu: return np.maximum(self.alpha*X, X) # Can also use np.clip(alpha*X, a_min = 0, a_max = np.inf)
+    else: return np.where(X < 0, 0.1*(np.exp(X) - 1), X)
 
   def grad(self, X):
       """
       It is NOT differentiable at 0. So people use "Sub Gradients". Check Legendary Convdersation: https://www.quora.com/Why-does-ReLU-work-with-backprops-if-its-non-differentiable
       """
       return np.where(X<=0, 0, 1)
-        
