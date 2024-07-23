@@ -1,7 +1,12 @@
 # ML-Models-from-Scratch
 Repo for ML Models  built from scratch. Includes 
-1. Traditional ML: Linear and Logistic Regression, PCA, LDA, SVM etc
-2. Deep Learning:
+1. Traditional ML:
+   - Linear Regression
+   - Logistic Regression
+   - SVM
+   - PCA
+   - LDA
+3. Deep Learning:
    - Loss with Backprop
    - Activations with BackProp
    - Layers: Dense (Linear), CNN, LSTM, Attention, MultiHead Attention
