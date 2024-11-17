@@ -1,5 +1,5 @@
 """
-Loss, Layers, Activations
+Loss, Activations
 """
 
 import numpy as np
@@ -8,33 +8,6 @@ import nnfs
 from nnfs.datasets import spiral_data
 
 nnfs.init()
-
-
-class Dense:
-    '''
-    Class to Implement the Fully Connected or the Dense Layer
-    '''
-    def __init__(self,input_size:int,output_size:int,factor:float=0.01)->None:
-        '''
-        args:
-            input_size: Size of the data coming from previous layer or the No of features coming from the Input Layer directly
-            output_size: Number of Neurons or the size of the output of this layer
-            factor: Normalization factor for initial weights 
-        '''
-        self.input_size = input_size
-        self.output_size  = output_size
-        self.W = factor * np.random.randn(self.input_size, self.output_size,) # Weight matrix corresponding to each neuron. To avoid Transposing the Weight Matrix, we used it as (input_size, output_size,) else it would have been the opposite
-        self.b = np.zeros((1, self.output_size)) # We have to add one bias for each neuron
-    
-    
-    def forward(self,X:np.ndarray)->None:
-        '''
-        Make a forward pass based on the equation y = W.x + b and store the results
-        args:
-            Pass in the result as numpy array of features input or output from another layer
-        '''
-        self.output = np.matmul(X, self.W) + self.b # y = W.X + b  (X dot (W_Transpose)) 
-
 
 class ReLu:
     '''
