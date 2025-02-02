@@ -88,9 +88,9 @@ rope = NumpyRoPE(dim=8)
 
 # Create sample input [batch=1, seq_len=3, dim=8] which means [1 sentence having, 3 tokens, and each token is converted to Embedidng Dimension] i.e  [["Mr Saleem Shady"]]
 x = np.array([
-    [0.5, 0.3, 0.7, 0.2, 0.4, 0.6, 0.1, 0.8],  # token 1
-    [0.9, 0.4, 0.2, 0.5, 0.3, 0.7, 0.6, 0.1],  # token 2
-    [0.1, 0.8, 0.3, 0.6, 0.4, 0.2, 0.9, 0.5]   # token 3
+    [0.5, 0.3, 0.7, 0.2, 0.4, 0.6, 0.1, 0.8],  # token 1: Embedding for "Mr"
+    [0.9, 0.4, 0.2, 0.5, 0.3, 0.7, 0.6, 0.1],  # token 2 # Embedding for "Saleem"
+    [0.1, 0.8, 0.3, 0.6, 0.4, 0.2, 0.9, 0.5]   # token 3 # Embedding for "Shady"
 ])[None, :, :]  # Add a batch dimension
 
 x_rotated = rope(x) # you see, the fancy boi helps here
